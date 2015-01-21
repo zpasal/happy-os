@@ -1,0 +1,21 @@
+ALL:
+   kernel.obj
+   c:\hos\lib\intwrap.obj
+   c:\hos\lib\krnl.obj
+   c:\hos\lib\386.obj
+   c:\hos\lib\string.obj
+   c:\hos\lib\printf.obj
+   c:\hos\lib\membmp.obj
+   c:\hos\lib\malloc.obj
+   c:\hos\lib\conio.obj
+   c:\hos\lib\tasks.obj
+   c:\hos\lib\floppy.obj 
+START: 0,0C0000000
+   ,,code,,kernel.obj
+_TEXT: 0
+   ,,code
+_DATA: 0
+   ,,data
+_BSS: 0
+   ,,bss
+   *

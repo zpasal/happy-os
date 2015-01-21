@@ -1,0 +1,29 @@
+
+FIZICKA MEMORIJA
+        00000000 --  00000FFF    Page Directory za kernel
+        00001000 --  00001FFF    Page Table za prva 4MB          [1]
+        00002000 --  00002FFF    Page Table za kernel            [2]
+        00004000 --  00004FFF    Kernel Data Area                
+
+     *  00010000 --              KERNEL (code+data+bss+stack)
+KDA:
+        00004000 -- 000041FF     floppy buffer
+        00004200 -- 00004FFF     rezervisano :)
+
+*   fizicka memorija nije jednaka virtualnoj
+
+Page Directory za kernel
+     Nulti entri pokazuje na [1], entri 300h pokazuje na [2].
+
+[1] - Page Table za prava 4MB memorije. Prvih 4MB fizicke je jednako
+      virtualnoj
+[2] - Page TAble za kernel. Kernel je ucitan na 1MB ali je mapiran na 3GB
+      - C0000000
+
+
+Kernel incijalizira memoriju tako sto odvoji prva 3 page (12KB). Nakon toga
+pravi novi entri u Page Directory-u koji pokazuje na novi page tabelu. Ova
+nova page tabela sluzi za heap. Odmah nakon alokacije Heap Page Tabele alocira
+se jedan page kao prva 4KB tj. prvobitna velicina heapa. Entri u Page
+Directory-u je 301h, pa tako dobijamo adrese od C0400000 (od strane malloc
+funkcije)

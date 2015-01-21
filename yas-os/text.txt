@@ -1,0 +1,168 @@
+Osnovna mapa memorije:
+
+ 0                                     1MB                                      EOM
+ ---------------------------------------------------------------------------------
+| * | 1 | 2 | ...| n |  FREE... | D | H | K-E-R-N-E-L ...| FREE ...               |
+ ---------------------------------------------------------------------------------
+ 
+
+SUPERUSER_MEMORY_AREA    0x00000000 - 0x3FFFFFFF  (0GB - 1GB)
+USER_MEMORY_AREA         0x40000000 - ..........  (1GB - FREE_MEM)
+
+ 
+[*]    0x00000000 - 0x000000FFF   Page Direktori
+[1..n] 0x00001000 - 0x?????????   Page tabele koje mapiraju Fizicka == virtualnoj
+       Moze bit maksimalno 253 page tabele tj. mapirati 1012MB (0x3F400000).
+       Broj tabela se racuna kao:
+
+                        n = UKUPNO_MEMORIJE / 4194304;
+
+       nakon ovoga ide slobodna memorija sve do 0x000FE000
+
+[D]    0x000FE000 - 0x000FEFFF  - buffer za DMA transfer
+[H]    0x000FF000 - 0x000FFFFF  - Page tabela za kernelov heap
+
+Nakon ovoga ide kernel od 0x00100000 pa do (1MB + size(code) + size(data) + size(bss))
+
+
+                INCIJALIZACIJA PAGIRANJA
+
+  1. Incijalizacija PD-a
+        a. popunimo sve nulama
+        b. izracunamo 'n' = UKUPNO_MEMORIJE / 4194304;
+        c. for(i=0; i<n; i++)
+               PD[i] = (i*4096) & 0x07;   // gdje su tabele sa SuperUser, RW, Present
+  2. Inicijalizacija Page tabela koje pokrivaju virt == phys
+        a. popunimo 'n' tabela sa nulama. Prva tabela pocinje od 0x00001000.
+        b. svaka od tih tabela pokazuje na region memorije od 0 - MAX(mem) sa
+           SuperUser, RW, Present
+  3. Inicjalizacija Page Tabele koja predstavlja heap window. Svaka alokacija mora imati
+     adresu vecu od 0x20000000 (512MB) pa setujemo PD adresu da pokazuje na to.
+        a. PD[128] = 0x000FF000;
+        b. sve nule na 0x000FF000;
+
+
+; NPR: 48MB & Kernel = 6*4KB = 24KB
+
+0
+ ------------------------------------------------------------------------------
+|P|1|2|3|4|5|6|7|8|9|10|11|12|   FREEE   |D|H| KERNEL |  FREE
+ -------------------------------------------------------------------------------
+
+USED: (1+12+2+6)*4KB = 84KB
+FREE:
+
+
+                        Memory Managment
+                        
+      1. FIZICKI
+      2. LOGICKI
+      
+                              
+            1. Fizicki MM
+            
+Za sada maksimalno memorije moze biti 512MB. Sve iznad nije adresibilno.
+(PREPRAVITI JEDNOG DANA).
+
+Evidencija o slobodnim pageovima se vodi u nizu
+
+            unsigned char _memory_bitmap[];
+            
+Gdje svaki bit predstavlja jednu tabelu. Funckija init_paging unutar
+ovog niza uzima pageove koje su vec zauzeti:
+
+            1. Page Directoriem
+            2. Page Tabelama koje mapiraju fizicka == virtualnoj
+            3. DMA buffer (1 Page)
+            4. Heap Tabela
+            5. Kernel
+
+
+HEAP TABLE - MAX(4MB)
+
+
+
+Funkcije:
+
+      void set_mbmp_bit(int b); // setuje b-ti bit
+      void claer_mbmp_bit(int b); // brise b-ti bit
+      int  get_mbmp_bit(int b); // vraca b-ti bit
+      void *alloc_page(int flags); // alocira novi page i vraca
+                          // fizicku adresu pagea
+      void free_page(void *ptr); // brise page
+
+
+                        HEAP
+
+Heap predstavlja memoriju koja se alocira sa malloc/free ali
+samo za kernel.
+
+Prilikom inicijalizacije heap ima svoju tabelu (maksimalni se
+moze alocirati 4MB). Na pocetku, heap je velicine 4KB.
+
+
+Poziv funkcije:
+
+            void* sbrk(size_t size);
+
+povecava heap za size/4096 pageova. Ako nema pageova vise
+sbrk vraca NULL u protivnom vraca pocetak nove memorije
+unutar heapa.
+
+            void* sbrk(size) {
+                  pages = size / 4096;
+                  if (size % 4096) pages++;
+                  phind = prvi slobodni u heap page tabeli
+                  for(i=0; i<pages; i++) {
+                        heap[phind+i] = alloc_page() | 0x07;
+                  }
+                  flush_paging();
+            }
+
+
+
+                  MALLOC & FREE
+                  
+                  
+struct t_mcb {
+      size_t size;
+      short magic;
+      short attrib;
+      t_mcb *next;
+};                  
+
+t_mcb *heap;
+
+Lista t_mcb blokova predstavlja cirkularnu listu.
+
+
+1. INIT  /* vec imamo 4KB na heapu koji su slobodni */
+      heap->next = heap;
+      heap->attrib = free;
+      heap->size = 4096 - sizeof(t_mcb);
+
+
+      // funkcija trazi slobodan mcb blok, pomocu algoritama:
+      // flag:
+      //    FIRST_FIT   /* prvi slobodan koji nadje */
+      //    BEST_FIT    /* nadje slobodni koji priblizno odgovara trazenom */
+      // ako niti jedan ne nadje, poziva se sbrk funkcija koja dodaje
+      // jos memorije na heap. A nakon toga vraca dodati dio
+      t_mcb* _malloc_fit(size_t size, int flag);
+
+      void* malloc(size_t size) {
+      t_mcb *m = _malloc_fit(size, malloc_fit);
+      return (void*)(m + 1);
+      }
+
+      /* za sada samo FIRST_FIT */
+      t_mcb* _malloc_fit(size_t, int flag) {
+      t_mcb *m = heap;
+            do {
+                  if (m->size <)
+            } while(m != heap);
+      }
+
+
+
+

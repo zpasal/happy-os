@@ -1,0 +1,5 @@
+rar: rar !.!
+zip: rar !.!
+c:   cc386 /C-l+N !.!
+asm: nasm -fobj  -o!.obj !.!
+obj: jloc !.lnk !.bin
